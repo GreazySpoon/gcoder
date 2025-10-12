@@ -61,7 +61,7 @@ def get_weather(city: Optional[str] = None) -> str:
 # --- Agent Definition with the Corrected Callback ---
 test_agent = LlmAgent(
     name="TestAgentWithCallback",
-    model=LiteLlm(model="ollama_chat/qwencoder-6:latest"),
+    model=LiteLlm(model="ollama_chat/qwen3-30-8:latest"),
     tools=[get_weather],
     # The instruction is now passed here, and the callback will enhance it.
     instruction="You are a helpful assistant.",

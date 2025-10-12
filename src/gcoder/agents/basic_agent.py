@@ -3,6 +3,7 @@
 import os
 import platform
 import subprocess
+from pathlib import Path
 from typing import Optional, Dict, Any
 
 from google.adk.agents import LlmAgent
@@ -10,14 +11,31 @@ from google.adk.models.lite_llm import LiteLlm
 from google.adk.agents.callback_context import CallbackContext
 from google.adk.models import LlmRequest, LlmResponse
 from google.genai import types
+from pydantic import BaseModel, Field
+
+
 
 # Import tool modules
-from gcoder.tools import file_tools, execution_tools, code_tools
+from gcoder.tools import file_tools, execution_tools
+# Conditionally import code_tools
+try:
+    from gcoder.tools import code_tools
+    _code_tools_available = True
+except ImportError:
+    _code_tools_available = False
+
 # Import system helpers
 from gcoder.system.callbacks import rich_before_tool_callback, rich_after_tool_callback
 from gcoder.system.capability_manager import CapabilityManager
+# Import the new config manager
+from gcoder.config import config
 
 # --- Dynamic Context Gathering Logic ---
+
+
+class FinalAnswer(BaseModel):
+    final_answer: str = Field(description="The final Answer of the user query/Question")
+
 
 def _get_dir_listing(path: str) -> str:
     """Helper to get a directory listing."""
@@ -73,37 +91,55 @@ cap_manager = CapabilityManager()
 
 # Start with the base set of tools that are always available
 ALL_TOOLS = [
-    file_tools.read_file, file_tools.write_file, file_tools.edit_file,
-    file_tools.find_file, file_tools.search_text,
-    execution_tools.run_in_terminal, execution_tools.change_directory,
+    file_tools.read_file,
+    file_tools.write_file,
+    file_tools.edit_file,
+    file_tools.find_file,
+    file_tools.search_text,
+    execution_tools.run_in_terminal,
+    execution_tools.change_directory,
 ]
 
 # Conditionally add the advanced code tools if LSP support is detected
-if cap_manager.is_lsp_supported:
+if _code_tools_available and cap_manager.is_lsp_supported:
     print("[gcoder] LSP support detected. Enabling code intelligence tools.")
     ALL_TOOLS.extend([
         code_tools.inspect_file,
         code_tools.find_definition_reference
     ])
 else:
-    print("[gcoder] LSP support not detected. Code intelligence tools are disabled. Install LSP servers for full functionality.")
+    print("[gcoder] LSP support not detected. Code intelligence tools are disabled.")
+
+# --- Load Instruction from File ---
+def load_instruction() -> str:
+    """Loads the main instruction prompt from the text file."""
+    try:
+        # Correctly resolve the path relative to this file's location
+        prompt_path = Path(__file__).parent.parent / "prompts" / "basic_agent_instruction.txt"
+        with open(prompt_path, 'r', encoding='utf-8') as f:
+            return f.read()
+    except FileNotFoundError:
+        print("Warning: prompts/basic_agent_instruction.txt not found. Using a default instruction.")
+        return "You are a helpful AI assistant."
 
 # --- Agent Definition ---
-# This is the agent ADK will load and run.
+
+# Get model configuration from the config file
+ollama_host = config.get('ollama', 'host', fallback='http://localhost:11434')
+model_name = config.get('ollama', 'model', fallback='qwen3-30-8:latest')
+
+# Set the Ollama host as an environment variable for LiteLLM to pick up
+os.environ['OLLAMA_API_BASE'] = ollama_host
+
 root_agent = LlmAgent(
     name="GcoderBasicAgent",
-    model=LiteLlm(model="ollama_chat/qwencoder-6:latest"),
+    model=LiteLlm(model=f"ollama_chat/{model_name}"),
     description="An expert AI coding assistant that can read/write files and execute commands.",
-    instruction="""You are an expert AI coding assistant named Gcoder.
-- Your primary goal is to help the user with their coding and system administration tasks.
-- You have access to a set of tools to interact with the file system and run commands.
-- Before taking any action, think about the user's request and create a clear, step-by-step plan.
-- Use the provided System Context to inform your decisions. The context is updated before every action you take.
-- When you execute a command, carefully review the output before deciding on the next step.
-- Inform the user of your actions and progress.
-""",
+    instruction=load_instruction(), # Load from file
     tools=ALL_TOOLS, # Use the dynamically constructed list
     before_model_callback=add_dynamic_context_callback,
     before_tool_callback=rich_before_tool_callback,
     after_tool_callback=rich_after_tool_callback,
+#   output_schema=FinalAnswer, 
+#   output_key="final_answer"
 )

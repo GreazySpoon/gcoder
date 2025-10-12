@@ -4,6 +4,7 @@ import os
 import tempfile
 import shutil
 from typing import Optional, Dict, Any
+
 from google.adk.tools import ToolContext
 
 def read_file(tool_context: ToolContext, path: str, start_line: Optional[int] = None, end_line: Optional[int] = None) -> Dict[str, Any]:
@@ -61,16 +62,40 @@ def edit_file(tool_context: ToolContext, path: str, start_line: int, end_line: i
         if not os.path.isfile(full_path):
             return {"status": "error", "message": f"Cannot edit file. '{path}' does not exist."}
 
-        # ... (rest of the logic is the same)
+        if start_line < 1:
+            return {"status": "error", "message": "`start_line` must be 1 or greater."}
+        if start_line > end_line + 1:
+            return {"status": "error", "message": f"Invalid range. `start_line` ({start_line}) cannot be greater than `end_line` ({end_line}) + 1."}
         
-        message = ""
+        with open(full_path, 'r', encoding='utf-8', errors='ignore') as f:
+            lines = f.readlines()
+
+        start_idx = max(0, start_line - 1)
+        end_idx = min(len(lines), end_line)
+        if start_idx > end_idx:
+            end_idx = start_idx
+        
+        new_content_lines = new_content.splitlines(True)
+        if not new_content_lines and new_content:
+            new_content_lines = [new_content]
+            
+        lines[start_idx:end_idx] = new_content_lines
+
+        temp_dir = os.path.dirname(full_path)
+        with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', delete=False, dir=temp_dir) as temp_f:
+            temp_path = temp_f.name
+            temp_f.writelines(lines)
+        
+        shutil.move(temp_path, full_path)
+        
         if start_line > end_line:
             message = f"Successfully inserted content at line {start_line} in '{path}'."
         else:
             message = f"Successfully replaced lines {start_line}-{end_line} in '{path}'."
         return {"status": "success", "content": message}
     except Exception as e:
-        # ... (rest of the logic is the same)
+        if 'temp_path' in locals() and os.path.exists(temp_path):
+            os.remove(temp_path)
         return {"status": "error", "message": f"An unexpected error occurred while editing file: {e}"}
 
 def find_file(tool_context: ToolContext, filename: str, path: Optional[str] = None) -> Dict[str, Any]:
@@ -80,7 +105,11 @@ def find_file(tool_context: ToolContext, filename: str, path: Optional[str] = No
         cwd = tool_context.state.get('cwd', os.getcwd())
         search_path = os.path.join(cwd, actual_path)
         found_files = []
-        # ... (rest of the logic is the same)
+        for root, _, files in os.walk(search_path):
+            if filename in files:
+                full_path = os.path.join(root, filename)
+                relative_path = os.path.relpath(full_path, cwd)
+                found_files.append(relative_path)
         
         if not found_files:
             return {"status": "success", "content": f"File '{filename}' not found in '{actual_path}'."}
@@ -95,7 +124,26 @@ def search_text(tool_context: ToolContext, search_term: str, path: Optional[str]
     try:
         actual_path = path if path is not None else "."
         cwd = tool_context.state.get('cwd', os.getcwd())
-        # ... (rest of the logic is the same)
+        search_path = os.path.join(cwd, actual_path)
+        results = []
+        
+        for root, _, files in os.walk(search_path):
+            for file in files:
+                full_path = os.path.join(root, file)
+                file_matches = []
+                try:
+                    with open(full_path, 'r', encoding='utf-8', errors='ignore') as f:
+                        lines = f.readlines()
+                    for i, line in enumerate(lines):
+                        if search_term in line:
+                            file_matches.append(f"  Line {i + 1}: {line.strip()}")
+                except Exception:
+                    continue
+
+                if file_matches:
+                    relative_path = os.path.relpath(full_path, cwd)
+                    results.append(f"\n# {relative_path}:")
+                    results.extend(file_matches)
         
         if not results:
             return {"status": "success", "content": f"No occurrences of '{search_term}' found in '{actual_path}'."}
