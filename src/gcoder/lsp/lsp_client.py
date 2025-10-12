@@ -149,7 +149,17 @@ class LspHandshakeHandler:
         initialize_params = {
             "processId": os.getpid(),
             "rootUri": self.workspace_uri,
-            "capabilities": { "textDocument": { "documentSymbol": { "hierarchicalDocumentSymbolSupport": True }}},
+            "capabilities": {
+                "workspace": {
+                    "symbol": {}  # <-- ADD THIS FOR 'workspace/symbol'
+                },
+                "textDocument": {
+                    "documentSymbol": {
+                        "hierarchicalDocumentSymbolSupport": True
+                    },
+                    "references": {} 
+                }
+            },
             "trace": "off"
         }
         

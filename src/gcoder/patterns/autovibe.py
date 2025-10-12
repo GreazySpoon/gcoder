@@ -1,86 +1,68 @@
 # src/gcoder/patterns/autovibe.py
 
-from typing import AsyncGenerator, List, Optional, Callable
-from typing_extensions import override
+from typing import List, Callable, Optional
+from google.adk.agents import LlmAgent, SequentialAgent, BaseAgent
+from google.adk.tools import FunctionTool, BaseTool
 
-from google.adk.agents import LlmAgent, BaseAgent
-from google.adk.agents.invocation_context import InvocationContext
-from google.adk.events import Event, EventActions
-from google.adk.tools import BaseTool, FunctionTool, ToolContext
-from google.adk.models.base_llm import BaseLlm
-
-# --- Tool Specific to this Pattern ---
-
-def delegate_to_coder(tool_context: ToolContext, task_instruction: str) -> str:
+def _create_looper(
+    model: BaseAgent,
+    output_key: str,
+    report_tool: FunctionTool
+) -> LlmAgent:
     """
-    Delegates a specific, single-step task to the Coder agent. Use this to assign a
-    focused part of the overall plan.
+    Creates a dedicated agent whose only job is to take a report from the state
+    and send it back to the coordinator using the 'report_back' tool.
     """
-    tool_context.actions.transfer_to_agent = "CoderWorkflow"
-    tool_context.state["coder_instruction"] = task_instruction
-    return f"Task delegated to Coder: {task_instruction}"
-
-# --- The Smart Wrapper Agent ---
-
-class CoderWorkflow(BaseAgent):
+    looper_instruction = f"""
+    **CRITICAL:** Your ONLY job is to use the `report_back` tool.
+    The report you must send is stored in the `{{{output_key}}}` state variable.
+    Use the `report_back` tool to send the complete, unmodified content of that report.
+    Do not add any text or explanation. Just call the tool.
     """
-    A custom wrapper agent that guarantees control returns to the Planner.
-    It runs the Coder agent, waits for it to finish, and then programmatically
-    signals a transfer back to the Planner.
-    """
-    def __init__(self, coder_agent: LlmAgent, planner_name: str, **kwargs):
-        super().__init__(name="CoderWorkflow", sub_agents=[coder_agent], **kwargs)
-        self._coder_agent = coder_agent
-        self._planner_name = planner_name
 
-    @override
-    async def _run_async_impl(
-        self, ctx: InvocationContext
-    ) -> AsyncGenerator[Event, None]:
-        """
-        Orchestrates the Coder -> Planner return trip.
-        """
-        async for event in self._coder_agent.run_async(ctx):
-            yield event
-
-        yield Event(
-            author=self.name,
-            actions=EventActions(transfer_to_agent=self._planner_name)
-        )
-
-# --- Pattern Assembly Function ---
+    # The looper has no need for complex callbacks as it's a simple, single-purpose agent.
+    return LlmAgent(
+        model=model,
+        name="LooperAgent",
+        tools=[report_tool],
+        instruction=looper_instruction,
+    )
 
 def create_autovibe_workflow(
-    model: BaseLlm,
-    coder_tools: List[BaseTool],
+    model: BaseAgent,
     planner_instruction: str,
-    coder_instruction: str,
+    coder_agent: LlmAgent, # Takes the fully-formed Coder agent
+    delegate_tool: FunctionTool,
+    report_tool: FunctionTool,
+    thinking_tools: List[BaseTool],
     before_tool_callback: Optional[Callable] = None,
     after_tool_callback: Optional[Callable] = None,
 ) -> LlmAgent:
     """
-    Assembles the complete "Planner-Coder" conversational workflow.
+    Assembles the complete autonomous workflow using the [Specialist -> Looper] pattern.
     """
     PLANNER_NAME = "PlannerAgent"
     
-    CoderAgent = LlmAgent(
-        name="CoderAgent",
+    # --- Create the Workflow Wrapper for the Coder ---
+    # This is the core of the pattern.
+    looper = _create_looper(
         model=model,
-        tools=coder_tools,
-        output_key="coder_report",
-        instruction=coder_instruction,
-        before_tool_callback=before_tool_callback,
-        after_tool_callback=after_tool_callback,
+        output_key=coder_agent.output_key, # Use the output_key defined on the Coder
+        report_tool=report_tool
     )
 
+    coder_workflow = SequentialAgent(
+        name=f"{coder_agent.name}Workflow",
+        sub_agents=[coder_agent, looper]
+    )
+
+    # --- Define the Planner Agent (The Root Agent) ---
     PlannerAgent = LlmAgent(
         name=PLANNER_NAME,
         model=model,
-        tools=[
-            FunctionTool(func=delegate_to_coder),
-            # Your thinking tools will be added in the main agent file
-        ],
-        sub_agents=[CoderWorkflow(coder_agent=CoderAgent, planner_name=PLANNER_NAME)],
+        tools=[delegate_tool] + thinking_tools,
+        # The Planner's sub-agent is the entire sequential workflow
+        sub_agents=[coder_workflow],
         instruction=planner_instruction,
         before_tool_callback=before_tool_callback,
         after_tool_callback=after_tool_callback,

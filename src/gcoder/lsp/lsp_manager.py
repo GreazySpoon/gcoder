@@ -7,7 +7,7 @@ import platform
 import os
 from typing import Optional, Dict
 
-from aagent.lsp.lsp_client import LspClient, LspHandshakeHandler
+from .lsp_client import LspClient, LspHandshakeHandler
 
 logger = logging.getLogger(__name__)
 
@@ -98,6 +98,7 @@ class LspManager:
 
             server_info = {"process": process, "port": port, "log_file": error_log_file}
             _active_lsp_servers[language] = server_info
+
             logger.info(f"Started {language} LSP bridge on port {port} with PID: {process.pid}")
             return server_info
         except FileNotFoundError:
