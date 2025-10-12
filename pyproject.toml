@@ -1,0 +1,42 @@
+# pyproject.toml
+
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "gcoder"
+version = "0.1.0"
+authors = [
+  { name="GreazySpoon (Tarik Moustaid)", email="tarikkof@gmail.com" },
+]
+description = "An AI agent CLI for system admin and code dev tasks, powered by ADK."
+readme = "README.md"
+requires-python = ">=3.9"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "google-adk",
+    "litellm", 
+    "rich", 
+    "fastapi",
+    "uvicorn[standard]",
+    "sse-starlette",
+    "pydantic",
+    "python-multipart",
+    "python-dotenv", 
+    "prompt_toolkit" 
+]
+
+[project.urls]
+"Homepage" = "https://github.com/GreazySpoon/gcoder" # Assumed new repo URL
+"Bug Tracker" = "https://github.com/GreazySpoon/gcoder/issues"
+
+[project.scripts]
+gcoder = "gcoder.main:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
