@@ -1,5 +1,8 @@
 # src/gcoder/terminal.py
 import os
+import sys
+from contextlib import redirect_stderr
+import io
 import random
 import subprocess
 from pathlib import Path
@@ -67,12 +70,10 @@ def apply_random_gradient(ascii_art: str) -> Text:
 def get_git_info() -> Optional[str]:
     """Gets the current git branch and repo name if available."""
     try:
-        # Check if we are in a git repository
         toplevel_proc = subprocess.run(['git', 'rev-parse', '--show-toplevel'], capture_output=True, text=True, check=True)
         repo_path = Path(toplevel_proc.stdout.strip())
         repo_name = repo_path.name
 
-        # Get current branch name
         branch_proc = subprocess.run(['git', 'branch', '--show-current'], capture_output=True, text=True, check=True)
         branch_name = branch_proc.stdout.strip()
         
@@ -89,19 +90,23 @@ async def handle_basic_agent_run(runner: Runner, session_id: str, prompt: str):
     final_response_started = False
 
     async for event in runner.run_async(user_id="cli_user", session_id=session_id, new_message=user_message):
-        if not isinstance(event, Event): continue
+        if not isinstance(event, Event):
+            continue
+        
         if event.error_message:
             rich_console.print(f"[bold #FF5555]Agent Error: {event.error_message}[/bold #FF5555]")
             continue
-        if event.is_final_response():
+
+        # Suppress warnings by temporarily redirecting stderr
+        with redirect_stderr(io.StringIO()):
             content = event.content
             if isinstance(content, Content) and content.parts:
-                part = content.parts[0]
-                if isinstance(part, Part) and part.text:
-                    if not final_response_started:
-                        rich_console.print("---")
-                        final_response_started = True
-                    rich_console.print(part.text, end="", style="#8BE9FD") # Light cyan for agent response
+                for part in content.parts:
+                    if hasattr(part, 'text') and part.text:
+                        if not final_response_started:
+                            final_response_started = True
+                        rich_console.print(part.text, end="", style="#8BE9FD")
+    
     rich_console.print()
 
 async def handle_autonomous_task_run(prompt: str, approval: bool):
@@ -139,20 +144,41 @@ async def handle_autonomous_task_run(prompt: str, approval: bool):
             
             if event.is_final_response() and isinstance(event.content, Content) and event.content.parts:
                 part = event.content.parts[0]
-                if isinstance(part, Part) and part.text:
+                if part.text:
                     final_summary_text = part.text
 
     final_report = final_summary_text or "Task finished without a final summary."
     rich_console.print(Panel(final_report, title="[bold #50FA7B]✅ Final Summary[/bold #50FA7B]", border_style="#50FA7B"))
     rich_console.print("[bold #FF79C6]🏁 Autonomous task finished.[/bold #FF79C6]")
+    rich_console.print()
 
 
-def get_prompt_message(cwd: str) -> FormattedText:
-    """Builds the prompt with vaporwave styling."""
+def get_prompt_message(cwd: str, cap_manager: CapabilityManager) -> FormattedText:
+    """Builds the two-line prompt with vaporwave styling."""
+    context_parts = []
+    if cap_manager.is_lsp_supported:
+        lsp_langs = ", ".join(sorted(list(cap_manager.supported_lsp_languages)))
+        context_parts.append(f"[λ LSP: {lsp_langs}]")
+    git_info = get_git_info()
+    if git_info:
+        context_parts.append(git_info)
+    
+    context_str = " ".join(context_parts)
+    
     home_dir = str(Path.home())
     display_cwd = "~" + cwd[len(home_dir):] if cwd.startswith(home_dir) else cwd
     
-    return FormattedText([
+    prompt_tokens = [
+        ('class:space', '\n'),
+    ]
+    
+    if context_str:
+        prompt_tokens.extend([
+            ('class:context', context_str),
+            ('class:space', '\n'),
+        ])
+
+    prompt_tokens.extend([
         ('class:brand', '>'),
         ('class:space', ' '),
         ('class:path', display_cwd),
@@ -160,10 +186,11 @@ def get_prompt_message(cwd: str) -> FormattedText:
         ('class:cursor', '❯'),
         ('class:space', ' '),
     ])
+    
+    return FormattedText(prompt_tokens)
 
 async def start_interactive_session(args):
     """Main interactive loop that dispatches to the correct agent."""
-    # --- Startup Sequence ---
     banners_dir = Path(__file__).parent / "banners"
     if banners_dir.is_dir():
         banner_files = list(banners_dir.glob("*.txt"))
@@ -174,23 +201,10 @@ async def start_interactive_session(args):
                 rich_console.print(apply_random_gradient(banner_art), justify="center")
 
     rich_console.print(Text("> G-CODER", style="bold #FF79C6", justify="center"))
+    rich_console.print(Text("Type '@task <description>' for autonomous mode or 'exit' to quit.", style="italic #61C7C7", justify="center"))
     
     cap_manager = CapabilityManager()
-    context_parts = []
-    if cap_manager.is_lsp_supported:
-        lsp_langs = ", ".join(sorted(list(cap_manager.supported_lsp_languages)))
-        context_parts.append(f"[λ LSP: {lsp_langs}]")
-    git_info = get_git_info()
-    if git_info:
-        context_parts.append(git_info)
-    
-    if context_parts:
-        rich_console.print(Text(" ".join(context_parts), style="#BD93F9", justify="center"))
 
-    rich_console.print(Text("Type '@task <description>' for autonomous mode or 'exit' to quit.", style="italic #61C7C7", justify="center"))
-    rich_console.print()
-
-    # --- ADK & Prompt Toolkit Setup ---
     basic_runner = Runner(
         agent=basic_agent.root_agent,
         app_name="gcoder_cli",
@@ -205,9 +219,10 @@ async def start_interactive_session(args):
 
     history_file = Path(os.path.expanduser("~/.gcoder/.session_history"))
     prompt_style = Style.from_dict({
-        'brand': 'bold #FF79C6',      # Magenta for >
-        'path': '#BD93F9',            # Lavender for path
-        'cursor': 'bold #61C7C7',     # Cyan for ❯
+        'context': '#BD93F9',
+        'brand': 'bold #FF79C6',
+        'path': '#BD93F9',
+        'cursor': 'bold #61C7C7',
         'space': '',
     })
     pt_session = PromptSession(history=FileHistory(str(history_file)), style=prompt_style)
@@ -215,7 +230,7 @@ async def start_interactive_session(args):
     while True:
         try:
             current_cwd = os.getcwd()
-            prompt_message = get_prompt_message(current_cwd)
+            prompt_message = get_prompt_message(current_cwd, cap_manager)
             prompt = await pt_session.prompt_async(prompt_message, auto_suggest=AutoSuggestFromHistory())
 
             if prompt.lower() in ['exit', 'quit']:
