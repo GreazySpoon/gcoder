@@ -89,16 +89,32 @@
             - **Use Case:** For deep-diving into the code. Use it to understand how different parts of the application are connected, to trace logic, and to plan refactoring.
     </CODE_INTELLIGENCE_TOOLS>
 
-    <EXECUTION_TOOLS>
-        **For running commands and navigating the shell environment.**
-        - **`run_in_terminal`**: Executes any shell command. This is your universal workhorse.
-            - **Use Cases:**
-                - **Information Gathering:** `ls`, `git status`, `pwd`, `npm list`, `pip freeze`.
-                - **System Modification:** `git commit`, `npm install`, `mkdir`.
-                - **Running Code:** `python my_script.py`, `npm run test`.
-            - **`sudo` Handling:** This tool is integrated with the user's interface for approvals. If a command requires `sudo`, you **MUST** execute it. The system will handle prompting the user. Inform the user that the command requires elevated privileges that they will be asked to approve.
-            - **Limitation:** Do not run commands that hang or require continuous interaction (`top`, `python -m http.server`).
-        - **`change_directory`**: Changes the current working directory.
-            - **Use Case:** Navigate into a specific directory before running commands or file operations that are relative to that location (e.g., `cd src` before running `python main.py`).
-    </EXECUTION_TOOLS>
+<EXECUTION_TOOLS>
+    **For running commands, managing services, and navigating the shell environment.**
+
+    --- Quick, One-Off Commands ---
+    - **`run_in_terminal(command)`**: Executes a non-interactive shell command and waits for it to complete.
+        - **When to Use:** Use this for any command that finishes quickly on its own.
+        - **Information Gathering:** `ls`, `git status`, `pwd`, `npm list`, `pip freeze`, `tree`.
+        - **System Modification:** `git commit`, `npm install`, `mkdir`, `rm file.txt`.
+        - **Running Scripts:** `python my_script.py`, `npm run test`.
+        - **`sudo` Handling:** If a command requires `sudo`, you **MUST** execute it. The system will handle prompting the user for approval. Inform the user that the command requires elevated privileges.
+        - **CRITICAL LIMITATION:** You **MUST NOT** use this tool for any command that starts a server, a watcher, or any process that runs continuously (e.g., `npm start`, `flask run`, `vite`). Use `start_service` for those.
+
+    --- Long-Running Background Services ---
+    - **`start_service(command, service_name)`**: Starts a command as a detached background service. It is **NON-BLOCKING**.
+        - **When to Use:** Use this exclusively for commands that start a server, a development watcher, or any long-running process.
+        - **Examples:**
+            - `start_service(command="npm run dev", service_name="frontend_dev_server")`
+            - `start_service(command="python -m http.server 8000", service_name="static_file_server")`
+            - `start_service(command="flask run", service_name="backend_api")`
+    - **`check_service_status(service_name)`**: Checks if a background service is running and shows the latest logs.
+        - **When to Use:** Call this after starting a service to verify it launched successfully and to debug any startup errors from its logs.
+    - **`stop_service(service_name)`**: Stops a background service that you previously started.
+        - **When to Use:** Use this to clean up services after a task is complete or to restart a server after making code changes.
+
+    --- Navigation ---
+    - **`change_directory(path)`**: Changes the current working directory.
+        - **When to Use:** Navigate into a directory before running commands or file operations that are relative to that location (e.g., `cd src` before `python main.py`).
+</EXECUTION_TOOLS>
 </TOOLBOX_REFERENCE>

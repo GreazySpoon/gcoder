@@ -89,6 +89,9 @@ ALL_TOOLS = [
     file_tools.search_text,
     execution_tools.run_in_terminal,
     execution_tools.change_directory,
+    execution_tools.stop_service,
+    execution_tools.check_service_status,
+    execution_tools.start_service,
 ]
 
 if _code_tools_available and cap_manager.is_lsp_supported:
