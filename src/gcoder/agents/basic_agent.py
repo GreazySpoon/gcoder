@@ -105,7 +105,9 @@ if _code_tools_available and cap_manager.is_lsp_supported:
     print("[gcoder] LSP support detected. Enabling code intelligence tools.")
     ALL_TOOLS.extend([
         code_tools.inspect_file,
-        code_tools.find_definition_reference
+        code_tools.find_definition,
+        code_tools.get_definition_code,
+        code_tools.find_references
     ])
 else:
     print("[gcoder] LSP support not detected. Code intelligence tools are disabled.")

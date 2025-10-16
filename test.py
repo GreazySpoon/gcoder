@@ -14,8 +14,8 @@ from google.genai import types
 
 # --- Imports for the Callback ---
 from google.adk.agents.callback_context import CallbackContext
-from google.adk.models import LlmRequest, LlmResponse
-
+from google.adk.models.llm_request import LlmRequest
+from google.adk.models.llm_response import LlmResponse
 # --- Configuration ---
 os.environ['OLLAMA_API_BASE'] = 'http://10.10.60.28:11434'
 

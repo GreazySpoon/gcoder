@@ -37,7 +37,12 @@ CODER_TOOLS = [
     execution_tools.run_in_terminal, execution_tools.change_directory,
 ]
 if cap_manager.is_lsp_supported:
-    CODER_TOOLS.extend([code_tools.inspect_file, code_tools.find_definition_reference])
+    CODER_TOOLS.extend([
+        code_tools.inspect_file,
+        code_tools.find_definition,
+        #code_tools.get_definition_code,
+        code_tools.find_references
+    ])
 CODER_TOOLS.extend(ALL_THINKING_TOOLS)
 
 def get_tool_name(tool):
