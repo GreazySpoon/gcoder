@@ -1,5 +1,3 @@
-# src/gcoder/main.py
-
 import sys
 import argparse
 import asyncio
@@ -27,8 +25,6 @@ def setup_parser():
 
 async def run_single_autonomous_task(prompt: str, approval: bool):
     """Initializes and runs a single autonomous task from the CLI and exits."""
-    # This imports the handle_autonomous_task_run function from terminal.py
-    # We are reusing the same logic for both interactive and single-shot task runs.
     from gcoder.terminal import handle_autonomous_task_run
     await handle_autonomous_task_run(f"@task {prompt}", approval)
 
@@ -37,18 +33,14 @@ def main():
     parser = setup_parser()
     args = parser.parse_args()
 
-    os.environ['OLLAMA_API_BASE'] = config.get('ollama', 'host')
-
     try:
         if args.api is not None:
-            # This logic remains the same
             uvicorn.run("gcoder.api.app:app", host="127.0.0.1", port=args.api, log_level="info")
         
         elif args.task:
             if not args.prompt:
                 console.print("[bold red]Error: A prompt is required for --task mode.[/bold red]")
                 sys.exit(1)
-            # THE CORE FIX: Call the dedicated function for single-shot autonomous tasks
             asyncio.run(run_single_autonomous_task(args.prompt, args.approval))
 
         else: # Default to interactive mode
