@@ -1,7 +1,10 @@
 import os
+from typing import Dict, Any
 
 from google.adk.agents import LlmAgent
+from google.adk.planners import BuiltInPlanner
 from google.adk.tools import FunctionTool
+from google.genai import types
 
 from gcoder.patterns.autovibe import create_autovibe_workflow
 from gcoder.tools import file_tools, execution_tools, code_tools
@@ -10,6 +13,11 @@ from gcoder.tools.orchestration_tools import create_delegate_task_tool, create_r
 from gcoder.system.capability_manager import CapabilityManager
 from gcoder.system.callbacks import rich_before_tool_callback, rich_after_tool_callback
 from gcoder.model_factory import get_model_instance
+from gcoder.config import config
+
+# --- Feature Flags ---
+ENABLE_THINKING = config.getboolean('model_features', 'think')
+ENABLE_VISION = config.getboolean('model_features', 'vision')
 
 # --- Configuration ---
 MODEL_CONFIG = get_model_instance('autonomous')
@@ -34,6 +42,12 @@ if cap_manager.is_lsp_supported:
         code_tools.find_references
     ])
 CODER_TOOLS.extend(ALL_THINKING_TOOLS)
+
+if ENABLE_VISION:
+    print("[gcoder] Vision is enabled for autonomous agent. Adding vision tools to Coder.")
+    from gcoder.tools.vision_tools import ALL_VISION_TOOLS
+    CODER_TOOLS.extend(ALL_VISION_TOOLS)
+
 
 def get_tool_name(tool):
     return getattr(tool, 'name', getattr(tool, '__name__', 'unknown_tool'))
@@ -67,25 +81,35 @@ You MUST fully complete the single instruction you are given. This may require u
 """
 
 # --- Agent Definitions ---
+coder_agent_kwargs: Dict[str, Any] = {
+    "name": "CoderAgent",
+    "model": MODEL_CONFIG,
+    "tools": CODER_TOOLS,
+    "output_key": CODER_REPORT_KEY,
+    "instruction": CODER_INSTRUCTION,
+    "before_tool_callback": rich_before_tool_callback,
+    "after_tool_callback": rich_after_tool_callback,
+}
 
-CoderAgent = LlmAgent(
-    name="CoderAgent",
-    model=MODEL_CONFIG,
-    tools=CODER_TOOLS,
-    output_key=CODER_REPORT_KEY,
-    instruction=CODER_INSTRUCTION,
-    before_tool_callback=rich_before_tool_callback,
-    after_tool_callback=rich_after_tool_callback,
-)
+autovibe_kwargs: Dict[str, Any] = {
+    "model": MODEL_CONFIG,
+    "planner_instruction": PLANNER_INSTRUCTION,
+    "delegate_tool": delegate_tool,
+    "report_tool": report_tool,
+    "thinking_tools": ALL_THINKING_TOOLS,
+    "before_tool_callback": rich_before_tool_callback,
+    "after_tool_callback": rich_after_tool_callback,
+}
+
+if ENABLE_THINKING:
+    print("[gcoder] Thinking is enabled for autonomous agent.")
+    planner = BuiltInPlanner(thinking_config=types.ThinkingConfig(include_thoughts=True))
+    coder_agent_kwargs["planner"] = planner
+    autovibe_kwargs["planner"] = planner
+
+
+CoderAgent = LlmAgent(**coder_agent_kwargs)
+autovibe_kwargs["coder_agent"] = CoderAgent
 
 # --- Construct the Final Root Agent ---
-root_agent = create_autovibe_workflow(
-    model=MODEL_CONFIG,
-    planner_instruction=PLANNER_INSTRUCTION,
-    coder_agent=CoderAgent,
-    delegate_tool=delegate_tool,
-    report_tool=report_tool,
-    thinking_tools=ALL_THINKING_TOOLS,
-    before_tool_callback=rich_before_tool_callback,
-    after_tool_callback=rich_after_tool_callback,
-)
+root_agent = create_autovibe_workflow(**autovibe_kwargs)

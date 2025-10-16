@@ -1,0 +1,3 @@
+<VISION_TOOLS>
+- `load_image_from_path(image_path)`: Use this tool to load an image from a local file path. You must call this tool first before you can analyze the image content, which will be provided to you in the next turn.
+</VISION_TOOLS>

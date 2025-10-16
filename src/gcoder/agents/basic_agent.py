@@ -2,14 +2,15 @@ import os
 import platform
 import subprocess
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Dict, Any
 
 from google.adk.agents import LlmAgent
+from google.adk.planners import BuiltInPlanner
 from google.adk.agents.callback_context import CallbackContext
 from google.adk.models import LlmRequest, LlmResponse
 from google.genai import types
 from pydantic import BaseModel, Field
-from google.adk.planners import PlanReActPlanner
+
 from gcoder.tools import file_tools, execution_tools
 try:
     from gcoder.tools import code_tools
@@ -20,6 +21,7 @@ except ImportError:
 from gcoder.system.callbacks import rich_before_tool_callback, rich_after_tool_callback
 from gcoder.system.capability_manager import CapabilityManager
 from gcoder.model_factory import get_model_instance
+from gcoder.config import config
 
 
 class FinalAnswer(BaseModel):
@@ -72,8 +74,12 @@ def add_dynamic_context_callback(
     )
     return None
 
-cap_manager = CapabilityManager()
+# --- Feature Flags ---
+ENABLE_THINKING = config.getboolean('model_features', 'think')
+ENABLE_VISION = config.getboolean('model_features', 'vision')
 
+# --- Dynamic Tool List Construction ---
+cap_manager = CapabilityManager()
 ALL_TOOLS = [
     file_tools.read_file,
     file_tools.write_file,
@@ -95,25 +101,51 @@ if _code_tools_available and cap_manager.is_lsp_supported:
 else:
     print("[gcoder] LSP support not detected. Code intelligence tools are disabled.")
 
+if ENABLE_VISION:
+    print("[gcoder] Vision is enabled. Adding vision tools.")
+    from gcoder.tools.vision_tools import ALL_VISION_TOOLS
+    ALL_TOOLS.extend(ALL_VISION_TOOLS)
+
+# --- Dynamic Instruction Loading ---
 def load_instruction() -> str:
-    """Loads the main instruction prompt from the text file."""
+    """Loads instruction prompts from text files."""
+    instruction_parts = []
+    prompts_dir = Path(__file__).parent.parent / "prompts"
+    
+    # Always load the base instruction
     try:
-        prompt_path = Path(__file__).parent.parent / "prompts" / "basic_agent_instruction.txt"
-        with open(prompt_path, 'r', encoding='utf-8') as f:
-            return f.read()
+        with open(prompts_dir / "basic_agent_instruction.txt", 'r', encoding='utf-8') as f:
+            instruction_parts.append(f.read())
     except FileNotFoundError:
         print("Warning: prompts/basic_agent_instruction.txt not found. Using a default instruction.")
         return "You are a helpful AI assistant."
 
+    # Append vision instructions if enabled
+    if ENABLE_VISION:
+        try:
+            with open(prompts_dir / "vision_instructions.txt", 'r', encoding='utf-8') as f:
+                instruction_parts.append(f.read())
+        except FileNotFoundError:
+            print("Warning: prompts/vision_instructions.txt not found, but vision is enabled.")
 
-root_agent = LlmAgent(
-    name="GcoderBasicAgent",
-    model=get_model_instance('basic'),
-    description="An expert AI coding assistant that can read/write files and execute commands.",
-    instruction=load_instruction(),
-    tools=ALL_TOOLS,
-    before_model_callback=add_dynamic_context_callback,
-    before_tool_callback=rich_before_tool_callback,
-    after_tool_callback=rich_after_tool_callback,
-    #planner=PlanReActPlanner()
-)
+    return "\n\n".join(instruction_parts)
+
+# --- Agent Definition ---
+agent_kwargs: Dict[str, Any] = {
+    "name": "GcoderBasicAgent",
+    "model": get_model_instance('basic'),
+    "description": "An expert AI coding assistant that can read/write files and execute commands.",
+    "instruction": load_instruction(),
+    "tools": ALL_TOOLS,
+    "before_model_callback": add_dynamic_context_callback,
+    "before_tool_callback": rich_before_tool_callback,
+    "after_tool_callback": rich_after_tool_callback,
+}
+
+if ENABLE_THINKING:
+    print("[gcoder] Thinking is enabled.")
+    agent_kwargs["planner"] = BuiltInPlanner(
+        thinking_config=types.ThinkingConfig(include_thoughts=True)
+    )
+
+root_agent = LlmAgent(**agent_kwargs)

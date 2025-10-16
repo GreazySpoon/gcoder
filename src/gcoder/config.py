@@ -11,9 +11,15 @@ active_provider = ollama
 # Set to true to enable step-by-step confirmation for sensitive commands in the CLI.
 human_in_the_loop = false
 
+[model_features]
+# If true, enables the BuiltInPlanner to expose the model's thoughts.
+think = false
+# If true, adds vision-related tools to the agent.
+vision = false
+
 [ollama]
 # The host for your Ollama instance (e.g., http://localhost:11434)
-host = http://10.10.60.28:11434
+host = http://localhost:11434
 # Your specific Ollama model name for the basic agent
 model = qwen3-30-8:latest
 # The model to use for the more complex autonomous agent workflow
