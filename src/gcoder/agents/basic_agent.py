@@ -3,6 +3,7 @@ import platform
 import subprocess
 from pathlib import Path
 from typing import Optional, Dict, Any
+import platform
 
 from google.adk.agents import LlmAgent
 from google.adk.planners import BuiltInPlanner
@@ -128,7 +129,13 @@ def load_instruction() -> str:
         except FileNotFoundError:
             print("Warning: prompts/vision_instructions.txt not found, but vision is enabled.")
 
-    return "\n\n".join(instruction_parts)
+    base_instruction = "\n\n".join(instruction_parts)
+    
+    # Add the crucial context for the AI
+    os_context = f"\n--- System Information ---\nOperating System: {platform.system()}. When using shell, You MUST use commands compatible with this OS."
+    
+    return base_instruction + os_context
+
 
 # --- Agent Definition ---
 agent_kwargs: Dict[str, Any] = {
