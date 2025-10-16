@@ -7,11 +7,10 @@ import socket
 import platform
 import os
 from typing import Optional, Dict
-
-from .lsp_client import LspClient, LspHandshakeHandler
+from pathlib import Path
 
 logger = logging.getLogger(__name__)
-
+from .lsp_client import LspClient, LspHandshakeHandler
 LANGUAGE_SERVER_COMMANDS = {
     "python": "pyright-langserver --stdio",
     "javascript": "typescript-language-server --stdio",
@@ -80,10 +79,22 @@ class LspManager:
         socat_command = f'socat TCP-LISTEN:{port},fork,reuseaddr EXEC:"{lsp_command}"'
         
         # --- MODIFICATION FOR DEBUGGING ---
-        # Log stderr to a file to see why the LSP server might be crashing.
-        error_log_path = os.path.join(self.workspace_root, "lsp_stderr.log")
-        error_log_file = open(error_log_path, "a")
-        
+        # --- MODIFICATION FOR DEBUGGING ---
+        # Log stderr to a file in the user's home directory for cross-platform consistency.
+        HOME = Path.home()
+        if platform.system() == "Windows":
+            # Use AppData/Roaming/Gcoder for Windows
+            config_dir = HOME / "AppData" / "Roaming" / "Gcoder"
+        elif platform.system() == "Darwin":
+            # Use Library/Application Support/Gcoder for macOS
+            config_dir = HOME / "Library" / "Application Support" / "Gcoder"
+        else:
+            # Use .config/gcoder for Linux (XDG Base Directory Specification)
+            config_dir = HOME / ".config" / "gcoder"
+
+        config_dir.mkdir(parents=True, exist_ok=True)
+        error_log_path = str(config_dir / "lsp_stderr.log")
+        error_log_file = open(error_log_path, "a")        
         try:
             # We run this as a detached background process.
             process = subprocess.Popen(
