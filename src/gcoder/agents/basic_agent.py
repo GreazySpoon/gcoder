@@ -9,7 +9,7 @@ from google.adk.agents.callback_context import CallbackContext
 from google.adk.models import LlmRequest, LlmResponse
 from google.genai import types
 from pydantic import BaseModel, Field
-
+from google.adk.planners import PlanReActPlanner
 from gcoder.tools import file_tools, execution_tools
 try:
     from gcoder.tools import code_tools
@@ -115,4 +115,5 @@ root_agent = LlmAgent(
     before_model_callback=add_dynamic_context_callback,
     before_tool_callback=rich_before_tool_callback,
     after_tool_callback=rich_after_tool_callback,
+    #planner=PlanReActPlanner()
 )
