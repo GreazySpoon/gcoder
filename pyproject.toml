@@ -28,7 +28,8 @@ dependencies = [
     "pydantic",
     "python-multipart",
     "python-dotenv", 
-    "prompt_toolkit" 
+    "prompt_toolkit",
+    "playwright"
 ]
 
 [project.urls]

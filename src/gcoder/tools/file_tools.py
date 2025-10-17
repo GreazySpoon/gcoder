@@ -75,9 +75,11 @@ def edit_file(tool_context: ToolContext, path: str, start_line: int, end_line: i
         if start_idx > end_idx:
             end_idx = start_idx
         
-        new_content_lines = new_content.splitlines(True)
-        if not new_content_lines and new_content:
-            new_content_lines = [new_content]
+        # Split the new content into lines, and ensure each line ends with a newline.
+        if new_content:
+            new_content_lines = [line + '\n' for line in new_content.splitlines()]
+        else:
+            new_content_lines = []
             
         lines[start_idx:end_idx] = new_content_lines
 

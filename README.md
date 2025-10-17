@@ -1,83 +1,185 @@
-# GCoder Project: Autonomous AI Agent Framework
 
-This repository hosts an advanced, modular AI agent framework designed for complex system interaction, development assistance, and automated task execution. The core operational paradigm strictly adheres to the **Observe -> Orient -> Decide -> Act -> Verify** lifecycle.
+# G-Coder: AI Agent for Code & System Tasks
 
-![General Agent Interface](screenshots/screen1.png)
+<div align="center">
+
+```
+  ██████╗  ██████╗ ██████╗ ██████╗ ███████╗██████╗ 
+ ██╔════╝ ██╔═══██╗██╔══██╗██╔══██╗██╔════╝██╔══██╗
+██║  ███╗██║   ██║██║  ██║██║  ██║█████╗  ██████╔╝
+██║   ██║██║   ██║██║  ██║██║  ██║██╔══╝  ██╔══██╗
+╚██████╔╝╚██████╔╝██████╔╝██████╔╝███████╗██║  ██║
+ ╚═════╝  ╚═════╝ ╚═════╝ ╚═════╝ ╚══════╝╚═╝  ╚═╝
+```
+**An AI agent CLI for system admin and code dev tasks, powered by the Google Agent Development Kit.**
+
+</div>
+
+![G-Coder Hero Image](./screenshots/screen1.png)
+
+
+**G-Coder** is a sophisticated, command-line AI agent designed to be your partner in software development, DevOps, and system administration. Built on the powerful and fluid [Google Agent Development Kit (ADK)](https://google.github.io/adk-docs/), G-Coder is engineered for speed, reliability, and effectiveness.
+
+Its core philosophy revolves around providing the AI with meticulously designed tools, intuitive naming conventions, and a smart system prompt. This combination makes the agent remarkably effective, even with smaller open-source models, and an absolute powerhouse with frontier models, capable of conducting highly complex tasks.
 
 ---
-**Note:** The screenshot above illustrates the typical interactive environment or interface of the running agent.
+
+## ✨ Features
+
+*   **Powered by Google ADK**: Leverages the speed, reliability, and fluidity of the Google Agent Development Kit for a robust and responsive agentic experience.
+*   **Multi-LLM Backend**: Seamlessly switch between different LLM providers.
+    *   ✅ **Ollama** (for local models)
+    *   ✅ **OpenAI**
+    *   ✅ **Gemini AI Studio**
+    *   ✅ **vLLM** (or any OpenAI-compatible endpoint)
+*   **🧠 Code Intelligence Toolbox (LSP-Powered)**: This is G-Coder's most powerful feature. It indexes your codebase and uses the Language Server Protocol (LSP) to provide the agent with deep, contextual understanding of your code. This allows it to navigate complex projects, find definitions, and trace references with surgical precision, all without consuming excessive context.
+*   **🤖 Autonomous Task Mode**: For complex, multi-step tasks, you can delegate control to the agent using the `@task` command. It will work autonomously towards the goal, providing a live-updating dashboard of its progress. (Note: This feature is experimental as we continue to refine multiple autonomous agent patterns).
+*   **🛠️ Comprehensive Toolset**:
+    *   **File Operations**: Read, write, and make surgical edits to files.
+    *   **Shell Execution**: Cross-platform support for running terminal commands.
+    *   **Service Management**: Start, monitor, and stop long-running services like web servers and dev watchers.
+    *   **Vision Tools** (Optional): Enable vision capabilities for multimodal models to analyze images.
+    *   **Browser Tools** (Optional): Allow the agent to interact with web pages, interpret UIs, and perform actions in a browser.
+*   **💡 Flexible Interaction Modes**:
+    *   **Interactive Mode**: A rich, conversational CLI for back-and-forth collaboration.
+    *   **Command-Line Mode**: Execute single, automated tasks and exit, perfect for scripting.
+*   **🚀 REST API Server**: Start G-Coder with a FastAPI backend, exposing its capabilities via a REST API with a built-in Swagger UI. This is perfect for serving agent environments in Docker containers.
+*   **🎨 Dynamic UI**: A visually pleasing and informative terminal interface that shows a new vaporwave-style logo banner on each startup.
+
 ---
 
-## 1. Project Architecture Overview
-
-The framework is organized into functional layers for clarity and extensibility:
-
-| Path | Description | Key Files |
-| :--- | :--- | :--- |
-| **`src/gcoder/`** | Core Python logic and agent definition. | `main.py` (Entry Point) |
-| **`src/gcoder/agents/`** | Implementations of the AI decision-makers. | `basic_agent.py`, `autonomous_agent.py` |
-| **`src/gcoder/tools/`** | The comprehensive toolkit providing capabilities to the agents. | `execution_tools.py`, `file_tools.py`, `code_tools.py`, `vision_tools.py` |
-| **`src/gcoder/prompts/`** | Stores system instructions and persona definitions. | `basic_agent_instruction.txt` |
-| **`src/gcoder/lsp/`** | Integration layer for Language Server Protocol diagnostics. | `lsp_manager.py` |
-| **`screenshots/`** | Visual documentation references. | `screen1.png`, `screen2.png` |
-
-## 2. Setup and Installation
+## 🚀 Installation & Setup
 
 ### Prerequisites
+*   Python 3.9+
+*   Git
 
-*   Python 3.8+
-*   Node.js (Likely required due to `package.json` presence)
-
-### Installation
-
-1.  **Clone & Navigate:**
-    ```bash
-    git clone <repository-url>
-    cd gcoder-project
-    ```
-
-2.  **Install Dependencies:**
-    The presence of `pyproject.toml` suggests a modern dependency manager like Poetry or PDM.
-    ```bash
-    # Recommended (if using Poetry)
-    poetry install
-    
-    # Fallback if necessary
-    # pip install -r requirements.txt (if requirements.txt exists)
-    
-    # Install Node dependencies
-    npm install
-    ```
-
-## 3. Execution and Operation
-
-The application is executed via the main script, which handles argument parsing and initiates the primary agent loop.
-
-**Running a Task (from `src/gcoder/main.py`):**
+### 1. Clone the Repository
 ```bash
-python src/gcoder/main.py --task "Analyze the code and update the README"
+git clone https://github.com/GreazySpoon/gcoder.git
+cd gcoder
 ```
 
-### Tool Capabilities Summary
+### 2. Install Dependencies
+It is highly recommended to use a virtual environment.
+```bash
+python -m venv .venv
+source .venv/bin/activate  # On Windows, use `.venv\Scripts\activate`
+pip install -e .
+```
+This installs the project in "editable" mode, so changes you make to the source code are immediately reflected.
 
-Agents operate by leveraging the following tool categories:
-*   **Execution:** `run_in_terminal` allows safe execution of shell commands (e.g., `ls`, `git`).
-*   **File System:** Tools for reading, writing, and surgical editing of files (`read_file`, `edit_file`).
-*   **Code Intelligence:** LSP-backed tools for finding definitions and references across the codebase.
+### 3. Configure Your LLM
+The first time you run `gcoder`, it will create a configuration file at `~/.gcoder/config.ini`. Open this file and edit it to select your desired LLM provider and enter your model names.
 
-## 4. Usage Example: File Modification Workflow
+```ini
+[default]
+# Supported values: ollama, openai, gemini, vllm
+active_provider = ollama
 
-The agent excels at multi-step technical tasks. This secondary screenshot demonstrates a sequence where the agent reads file content and executes an edit based on a user request.
+[ollama]
+host = http://localhost:11434
+model = llama3:latest
+autonomous_model = llama3:latest
 
-![Example Usage Workflow](screenshots/screen2.png)
+[openai]
+# Your OPENAI_API_KEY must be set as an environment variable.
+model = gpt-4o
+autonomous_model = gpt-4o
+```
 
-## 5. Known Observations (From Code Inspection)
+### 4. (Recommended) Enable Code Intelligence
+To unlock the powerful Code Intelligence tools, you need to install the relevant Language Server Protocol (LSP) servers. The agent will automatically detect them if they are in your system's PATH.
 
-*   **Agent Configuration:** Agents like `basic_agent.py` have compile-time configuration toggles for enabling advanced features like **Thinking** and **Vision**.
-*   **External Dependencies:** The `basic_agent.py` shows import errors related to `google.adk.models`, suggesting potential integration with an internal or specific Google SDK that might be missing or misconfigured in the current environment.
+For **Python** support (heavily tested), install `pyright`:
+```bash
+npm install -g pyright-langserver
+```
 
-## 6. Configuration Files
+Support for TypeScript/JavaScript (`typescript-language-server`) and C# (`omnisharp`) is also available.
 
-Initial environment variables and settings should be checked in:
-*   `example-config.ini`
-*   `pyproject.toml` (for Python dependencies and metadata)
+---
+
+## 💻 How to Use
+
+### Interactive Mode
+This is the default mode. Start a rich, conversational session. The `-a` flag enables human approval for sensitive commands like `sudo`.
+```bash
+gcoder -a
+```
+
+### Autonomous Task Mode
+Delegate a complex task to the agent within the interactive session using the `@task` keyword.
+```
+> /path/to/your/project ❯ @task Refactor the database connection logic in `main.py` to use a connection pool.
+```
+
+### Single-Shot Task Mode
+Run a single autonomous task from your terminal and exit. Useful for scripting.
+```bash
+gcoder --task "Analyze the `docker-compose.yml` file and explain the services it defines."
+```
+
+### API Server Mode
+Start the FastAPI server (defaults to port 8844).
+```bash
+gcoder --api 8844
+```
+You can now access the Swagger UI at `http://127.0.0.1:8844/docs`.
+
+---
+
+## 🖼️ Usage Examples
+
+#### Interactive Chat & File Editing
+![G-Coder Usage Example 1](./screenshots/screen2.png)
+
+#### Autonomous Task Dashboard
+![G-Coder Usage Example 2](./screenshots/screen3.png)
+
+---
+
+## 🛣️ Roadmap & Future Enhancements
+We are constantly working to improve G-Coder. Here's what's on the horizon:
+
+-   [ ] **Autonomous Agent**: Enhance the autonomous agent to run reliably until a task is achieved or context limit is reached.
+-   [ ] **Web UI**: Develop a full-featured web interface for interacting with the agent.
+-   [ ] **Browser Interaction**: Further improve the reliability and capabilities of the browser tools.
+-   [ ] **Multi-Code-Project (MCP) Support**: Better management for tasks spanning multiple codebases.
+-   [ ] **API Endpoints**: Add dedicated API endpoints for browser and agent control.
+-   [ ] **Session Management**: Persistent and shareable agent sessions.
+-   [ ] **Background Subtasks**: Ability to spawn and manage background tasks.
+-   [ ] **Pip Installation**: Make the package easily installable via `pip install gcoder`.
+
+---
+
+## 📂 Project Structure
+
+A brief overview of the project's layout:
+
+```
+.
+├── src/gcoder/
+│   ├── api/          # FastAPI server logic.
+│   ├── agents/       # Agent definitions and prompts.
+│   ├── system/       # Core system components (tools, callbacks, capabilities).
+│   ├── ui/           # Rich UI components like the task dashboard.
+│   ├── banners/      # ASCII art banners for the CLI.
+│   ├── config.py     # Configuration management.
+│   ├── main.py       # CLI entry point and argument parsing.
+│   ├── models.py     # LLM model loading and abstraction.
+│   └── terminal.py   # Main interactive terminal loop and logic.
+├── pyproject.toml    # Project definition and dependencies.
+└── README.md         # You are here!
+```
+
+---
+
+## 🙌 Contributing
+Contributions are welcome! If you'd like to help improve G-Coder, please feel free to fork the repository, create a new branch for your feature or bug fix, and submit a pull request.
+
+---
+
+## 📜 License
+
+MIT License
