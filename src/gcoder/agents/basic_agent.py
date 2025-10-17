@@ -108,7 +108,9 @@ else:
 if ENABLE_VISION:
     print("[gcoder] Vision is enabled. Adding vision tools.")
     from gcoder.tools.vision_tools import ALL_VISION_TOOLS
+    from gcoder.tools.browser_tools import ALL_BROWSER_TOOLS
     ALL_TOOLS.extend(ALL_VISION_TOOLS)
+    ALL_TOOLS.extend(ALL_BROWSER_TOOLS)
 
 # --- Dynamic Instruction Loading ---
 def load_instruction() -> str:

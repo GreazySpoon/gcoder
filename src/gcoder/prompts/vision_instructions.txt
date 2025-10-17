@@ -1,3 +1,77 @@
+
 <VISION_TOOLS>
-- `load_image_from_path(image_path)`: Use this tool to load an image from a local file path. You must call this tool first before you can analyze the image content, which will be provided to you in the next turn.
+    - `load_image_from_path(image_path)`: Use this tool to load an image from a local file path. You must call this tool first before you can analyze the image content, which will be provided to you in the next turn.
 </VISION_TOOLS>
+
+
+<BROWSER_TOOLS>
+    **Your Guide to Visually Interacting with the Web**
+
+    This tool is your eyes and hands on the web. It operates on a simple but strict loop: you observe the screen, you take one action, and you observe the new screen.
+
+    ---
+    ### **CRITICAL MENTAL MODEL: Element IDs are Temporary**
+
+    This is the most important rule. **You must treat `element_id`s as single-use keys that expire immediately after any action that changes the page.**
+
+    -   **Why?** When you `CLICK` a link or `GOTO` a URL, the webpage is completely reloaded. The underlying code changes, and the `element_id`s from the *previous* page are now meaningless. A button that was ID `12` might not exist anymore, or ID `12` might now be a completely different element.
+    -   **Your Rule:** **NEVER** reuse an `element_id` from a previous turn if the page has changed. Always use the IDs from the **most recent** `labeled_screenshot` provided to you.
+
+    ---
+    ### **The Core Workflow: A Strict 4-Step Loop**
+
+    You must follow this loop for every interaction to avoid errors.
+
+    1.  **OBSERVE:** Look at the two images you just received.
+        -   `raw_screenshot`: Understand the page context, read text, and see what a human would.
+        -   `labeled_screenshot`: Identify the `element_id` for the *one* specific element you want to interact with next.
+
+    2.  **DECIDE:** Choose a single `browser_action` to perform.
+
+    3.  **ACT:** Execute the tool call (e.g., `browser_action(action='CLICK', element_id=...)`).
+
+    4.  **RECEIVE & RESET:** You will receive a new pair of screenshots showing the result of your action. **At this moment, you must discard all `element_id`s you knew before.** Your knowledge is now reset. The new screenshots are your only source of truth. Repeat the loop from Step 1.
+
+    ---
+    ### **Tool Reference: `browser_action()`**
+
+    #### **Navigation & State**
+
+    -   **`browser_action(action='GOTO', url='...')`**: Navigates to a web URL or a local file.
+        -   **Use Case:** Your starting point for any task. After this action, the page is new, so all previous IDs are invalid.
+        -   **Local Files:** You can view local work by providing a path like `./index.html`.
+
+    -   **`browser_action(action='GET_STATE')`**: Refreshes your view of the current page.
+        -   **Use Case:** Use this **only** if you believe the page has changed *without you doing anything* (e.g., a redirect, a live-updating dashboard, or an ad appearing after a delay). This gives you a fresh set of IDs for the current page. For all other cases, the state is returned automatically after your action.
+
+    #### **Element Interaction**
+
+    -   **`browser_action(action='CLICK', element_id=..., force_click=False)`**: Clicks an element.
+        -   **Process:**
+            1.  Find the `element_id` from the latest `labeled_screenshot`.
+            2.  Call the action. A new page will likely load.
+            3.  Wait for the new screenshots and **discard the ID you just used**.
+        -   **Handling Overlays (Cookie Banners, Pop-ups):** If a click fails because something is in the way, your first priority is to **find and click the "Accept", "Confirm", or "Close" button on the overlay itself.**
+        -   **`force_click=True`:** Use this as a **last resort** if you cannot dismiss an overlay. It can have unintended consequences. Example: `browser_action(action='CLICK', element_id=102, force_click=True)`.
+
+    -   **`browser_action(action='TYPE', element_id=..., text_to_type='...')`**: Types text into an input field.
+        -   **Process:** This action usually does not navigate. You will receive updated screenshots showing your typed text. The `element_id`s for other elements on the page will likely remain the same, but it is always safest to re-verify from the new image.
+
+    -   **`browser_action(action='SCROLL', scroll_direction='...')`**: Scrolls the page `up` or `down`.
+        -   **Process:** This action reveals new elements. You will receive new screenshots with new `element_id`s for the newly visible items.
+
+    #### **Tab Management**
+
+    -   **`browser_action(action='LIST_TABS')`**: Lists all open tabs and their IDs.
+    -   **`browser_action(action='CLOSE_TAB', tab_id=...)`**: Closes a specific tab.
+
+    ---
+    ### **Example Workflow Demonstrating the Mental Model**
+
+    1.  **Start:** `browser_action(action='GOTO', url='https://google.com')`
+    2.  **Observe:** You get screenshots. You see a search bar is `element_id=3`.
+    3.  **Act:** `browser_action(action='TYPE', element_id=3, text_to_type='tulip flowers')`
+    4.  **Receive & Reset:** You get new screenshots showing the typed text. You re-examine the `labeled_screenshot`. The search button is now `element_id=4`. The ID `3` is still valid for now because the page didn't navigate.
+    5.  **Act:** `browser_action(action='CLICK', element_id=4)`
+    6.  **Receive & Reset:** The search results page loads. You get new screenshots. **CRITICAL: The old IDs `3` and `4` are now completely invalid.** You must now analyze the new `labeled_screenshot` to find the IDs for the search result links you want to click.
+</BROWSER_TOOLS>
