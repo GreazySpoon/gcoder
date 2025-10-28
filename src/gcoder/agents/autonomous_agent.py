@@ -1,3 +1,5 @@
+# src/gcoder/agents/autonomous_agent.py
+
 import os
 from typing import Dict, Any
 
@@ -15,21 +17,17 @@ from gcoder.system.callbacks import rich_before_tool_callback, rich_after_tool_c
 from gcoder.model_factory import get_model_instance
 from gcoder.config import config
 
-# --- Feature Flags ---
 ENABLE_THINKING = config.getboolean('model_features', 'think')
 ENABLE_VISION = config.getboolean('model_features', 'vision')
 
-# --- Configuration ---
 MODEL_CONFIG = get_model_instance('autonomous')
 NAMESPACE = "gcoder_task"
 CODER_REPORT_KEY = f"{NAMESPACE}:coder_report"
 
-# --- Tool Factories Instantiation ---
 PLANNER_NAME = "PlannerAgent"
 delegate_tool = create_delegate_task_tool(namespace=NAMESPACE)
 report_tool = create_report_back_tool(coordinator_name=PLANNER_NAME, namespace=NAMESPACE)
 
-# --- Toolset for the Coder Agent ---
 cap_manager = CapabilityManager()
 CODER_TOOLS = [
     file_tools.read_file, file_tools.write_file, file_tools.edit_file,
@@ -53,8 +51,6 @@ def get_tool_name(tool):
     return getattr(tool, 'name', getattr(tool, '__name__', 'unknown_tool'))
 
 CODER_TOOL_NAMES_STR = ", ".join([f"`{get_tool_name(tool)}`" for tool in CODER_TOOLS])
-
-# --- Agent Instructions ---
 
 PLANNER_INSTRUCTION = f"""You are the Planner, a project manager. Your job is to achieve the user's goal by delegating single, clear steps to a Coder agent.
 
@@ -80,7 +76,6 @@ You MUST fully complete the single instruction you are given. This may require u
 3.  Your final output MUST be a concise, factual report of what you did. This is your only output.
 """
 
-# --- Agent Definitions ---
 coder_agent_kwargs: Dict[str, Any] = {
     "name": "CoderAgent",
     "model": MODEL_CONFIG,
@@ -111,5 +106,4 @@ if ENABLE_THINKING:
 CoderAgent = LlmAgent(**coder_agent_kwargs)
 autovibe_kwargs["coder_agent"] = CoderAgent
 
-# --- Construct the Final Root Agent ---
 root_agent = create_autovibe_workflow(**autovibe_kwargs)

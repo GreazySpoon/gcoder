@@ -19,8 +19,6 @@ def _create_looper(
     Use the `report_back` tool to send the complete, unmodified content of that report.
     Do not add any text or explanation. Just call the tool.
     """
-
-    # The looper has no need for complex callbacks as it's a simple, single-purpose agent.
     return LlmAgent(
         model=model,
         name="LooperAgent",
@@ -31,23 +29,22 @@ def _create_looper(
 def create_autovibe_workflow(
     model: BaseAgent,
     planner_instruction: str,
-    coder_agent: LlmAgent, # Takes the fully-formed Coder agent
+    coder_agent: LlmAgent,
     delegate_tool: FunctionTool,
     report_tool: FunctionTool,
     thinking_tools: List[BaseTool],
     before_tool_callback: Optional[Callable] = None,
     after_tool_callback: Optional[Callable] = None,
+    planner: Optional[BaseAgent] = None,
 ) -> LlmAgent:
     """
     Assembles the complete autonomous workflow using the [Specialist -> Looper] pattern.
     """
     PLANNER_NAME = "PlannerAgent"
     
-    # --- Create the Workflow Wrapper for the Coder ---
-    # This is the core of the pattern.
     looper = _create_looper(
         model=model,
-        output_key=coder_agent.output_key, # Use the output_key defined on the Coder
+        output_key=coder_agent.output_key,
         report_tool=report_tool
     )
 
@@ -56,16 +53,15 @@ def create_autovibe_workflow(
         sub_agents=[coder_agent, looper]
     )
 
-    # --- Define the Planner Agent (The Root Agent) ---
     PlannerAgent = LlmAgent(
         name=PLANNER_NAME,
         model=model,
         tools=[delegate_tool] + thinking_tools,
-        # The Planner's sub-agent is the entire sequential workflow
         sub_agents=[coder_workflow],
         instruction=planner_instruction,
         before_tool_callback=before_tool_callback,
         after_tool_callback=after_tool_callback,
+        planner=planner,
     )
     
     return PlannerAgent
